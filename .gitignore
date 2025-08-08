@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+/dist/
+/out/
+
+# Environment
+.env
+.env.*
+
+# Secrets / local state
+keypairs/
+token-info.json
+mining-sessions.json
+liquidity-config.json
+
+# Logs & OS files
+*.log
+.DS_Store
