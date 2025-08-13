@@ -1,8 +1,10 @@
-import { createFungible } from '@metaplex-foundation/mpl-token-metadata';
-import { findAssociatedTokenPda, createAssociatedToken, mintTokensTo } from '@metaplex-foundation/mpl-toolbox';
-import { generateSigner, percentAmount, signerIdentity } from '@metaplex-foundation/umi';
-import { createSolanaConnection } from '../utils/connection';
-import { loadKeypairFromFile } from '../utils/keypair';
+import { Connection, clusterApiUrl, Keypair, PublicKey } from '@solana/web3.js';
+import {
+  createMint as splCreateMint,
+  getOrCreateAssociatedTokenAccount,
+  mintTo,
+  transfer as splTransfer,
+} from '@solana/spl-token';
 import fs from 'fs';
 import path from 'path';
 
@@ -22,90 +24,55 @@ try {
   }
 } catch (_) {}
 
+const loadWallet = (): Keypair => {
+  const p = path.join(process.cwd(), 'keypairs', 'wallet.json');
+  const secret = new Uint8Array(JSON.parse(fs.readFileSync(p, 'utf-8')));
+  return Keypair.fromSecretKey(secret);
+};
+
 const main = async () => {
-  console.log('🪙 Creating and minting Vardiano in one flow...\n');
-  const umi = createSolanaConnection();
+  console.log('🪙 Creating mint, minting supply, and testing transfer (classic SPL)...\n');
+  const conn = new Connection(process.env.SOLANA_RPC_URL || clusterApiUrl('devnet'), 'confirmed');
+  const wallet = loadWallet();
+  console.log(`📤 Payer/Mint Authority: ${wallet.publicKey.toBase58()}`);
 
-  const wallet = loadKeypairFromFile(umi, 'wallet');
-  umi.use(signerIdentity(wallet));
-  console.log(`📤 Payer: ${wallet.publicKey}`);
+  console.log('\n🔨 Creating mint');
+  const mint = await splCreateMint(conn, wallet, wallet.publicKey, null, TOKEN_CONFIG.decimals);
+  console.log(`✅ Mint: ${mint.toBase58()}`);
 
-  // Use a fresh mint
-  const mintSigner = generateSigner(umi);
-  console.log(`🏭 New mint: ${mintSigner.publicKey}`);
-
-  // Upload minimal metadata
-  const metadata = {
-    name: TOKEN_CONFIG.name,
-    symbol: TOKEN_CONFIG.symbol,
-    description: TOKEN_CONFIG.description,
-    image: '',
-    attributes: [],
-    properties: { files: [], category: 'image' },
-  };
-
-  console.log('📤 Uploading metadata...');
-  const uri = await umi.uploader.uploadJson(metadata);
-  console.log(`📄 URI: ${uri}`);
-
-  console.log('\n🔨 Creating mint + metadata');
-  await createFungible(umi, {
-    mint: mintSigner,
-    name: TOKEN_CONFIG.name,
-    symbol: TOKEN_CONFIG.symbol,
-    uri,
-    sellerFeeBasisPoints: percentAmount(0),
-    decimals: TOKEN_CONFIG.decimals,
-  }).sendAndConfirm(umi);
-
-  // Resolve Token-2022 program id registered by mplToolbox
-  const TOKEN_2022 = umi.programs.get('splToken2022').publicKey;
-
-  console.log('\n💳 Ensuring ATA for payer (Token-2022)');
-  const ata = findAssociatedTokenPda(umi, {
-    mint: mintSigner.publicKey,
-    owner: wallet.publicKey,
-    tokenProgramId: TOKEN_2022,
-  });
-  try {
-    await createAssociatedToken(umi, {
-      mint: mintSigner.publicKey,
-      owner: wallet.publicKey,
-      tokenProgram: TOKEN_2022,
-    }).sendAndConfirm(umi);
-    console.log(`✅ ATA: ${ata[0]}`);
-  } catch {
-    console.log('ℹ️ ATA may already exist');
-  }
+  console.log('\n💳 Ensuring ATA for payer');
+  const ataSender = await getOrCreateAssociatedTokenAccount(conn, wallet, mint, wallet.publicKey);
+  console.log(`✅ Sender ATA: ${ataSender.address.toBase58()}`);
 
   console.log('\n🪙 Minting initial supply');
-  const amount = BigInt(TOKEN_CONFIG.initialSupply * Math.pow(10, TOKEN_CONFIG.decimals));
-  const mintTx = await mintTokensTo(umi, {
-    mint: mintSigner.publicKey,
-    token: ata[0],
-    mintAuthority: wallet,
-    amount,
-  }).sendAndConfirm(umi);
-
+  const amount = Number(BigInt(TOKEN_CONFIG.initialSupply) * 10n ** BigInt(TOKEN_CONFIG.decimals));
+  await mintTo(conn, wallet, mint, ataSender.address, wallet.publicKey, amount);
   console.log(`🎉 Minted ${TOKEN_CONFIG.initialSupply.toLocaleString()} ${TOKEN_CONFIG.symbol}`);
-  console.log(`🧾 Mint TX: ${mintTx.signature}`);
+
+  console.log('\n🚚 Transfer test (1,000 tokens)');
+  const recipient = Keypair.generate();
+  const ataRecipient = await getOrCreateAssociatedTokenAccount(conn, wallet, mint, recipient.publicKey);
+  const transferAmount = Number(1000n * 10n ** BigInt(TOKEN_CONFIG.decimals));
+  const transferSig = await splTransfer(conn, wallet, ataSender.address, ataRecipient.address, wallet.publicKey, transferAmount);
+  console.log(`✅ Transferred 1,000 ${TOKEN_CONFIG.symbol}`);
+  console.log(`🧾 Transfer TX: ${transferSig}`);
 
   const tokenInfo = {
-    mintAddress: mintSigner.publicKey.toString(),
-    tokenAccount: ata[0].toString(),
+    mintAddress: mint.toBase58(),
+    tokenAccount: ataSender.address.toBase58(),
     name: TOKEN_CONFIG.name,
     symbol: TOKEN_CONFIG.symbol,
     decimals: TOKEN_CONFIG.decimals,
     initialSupply: TOKEN_CONFIG.initialSupply,
-    metadataUri: uri,
-    mintTransaction: mintTx.signature.toString(),
     createdAt: new Date().toISOString(),
     network: 'devnet',
+    testTransferTx: transferSig,
   };
   fs.writeFileSync(path.join(process.cwd(), 'token-info.json'), JSON.stringify(tokenInfo, null, 2));
   console.log('\n📦 Saved token-info.json');
 
-  console.log(`🔍 Explorer: https://explorer.solana.com/address/${mintSigner.publicKey}?cluster=devnet`);
+  console.log(`🔍 Mint: https://explorer.solana.com/address/${mint.toBase58()}?cluster=devnet`);
+  console.log(`🔍 Transfer TX: https://explorer.solana.com/tx/${transferSig}?cluster=devnet`);
 };
 
 if (require.main === module) {

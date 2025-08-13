@@ -1,9 +1,11 @@
 import { 
-  updateMetadata,
-  mplTokenMetadata 
+  createMetadataAccountV3,
+  updateMetadataAccountV2,
+  findMetadataPda
 } from '@metaplex-foundation/mpl-token-metadata';
 import { createSolanaConnection } from '../utils/connection';
 import { loadKeypairFromFile } from '../utils/keypair';
+import { publicKey, signerIdentity } from '@metaplex-foundation/umi';
 import fs from 'fs';
 import path from 'path';
 
@@ -22,7 +24,6 @@ const updateTokenMetadata = async (updates: MetadataUpdate) => {
   console.log('🔄 Updating Token Metadata\n');
   
   try {
-    // Load token info
     const tokenInfoPath = path.join(process.cwd(), 'token-info.json');
     if (!fs.existsSync(tokenInfoPath)) {
       throw new Error('Token info not found. Please create a token first.');
@@ -34,46 +35,48 @@ const updateTokenMetadata = async (updates: MetadataUpdate) => {
     
     const umi = createSolanaConnection();
     const wallet = loadKeypairFromFile(umi, 'wallet');
+    umi.use(signerIdentity(wallet));
     
     console.log(`👤 Wallet: ${wallet.publicKey}`);
     
-    // Create new metadata
     const newMetadata = {
-      name: tokenInfo.name, // Cannot change
-      symbol: tokenInfo.symbol, // Cannot change
-      description: updates.description || 'A revolutionary Solana token built for the future of decentralized finance',
-      image: updates.image || '',
-      external_url: updates.externalUrl || '',
-      attributes: updates.attributes || [],
-      properties: updates.properties || {
-        files: [],
-        category: 'image'
-      }
+      name: tokenInfo.name,
+      symbol: tokenInfo.symbol,
+      description: updates.description || tokenInfo.metadata?.description || '',
+      image: updates.image || tokenInfo.metadata?.image || '',
+      external_url: updates.externalUrl || tokenInfo.metadata?.external_url || '',
+      attributes: updates.attributes || tokenInfo.metadata?.attributes || [],
+      properties: updates.properties || tokenInfo.metadata?.properties || { files: [], category: 'image' }
     };
     
     console.log('\n📤 Uploading updated metadata...');
     const newMetadataUri = await umi.uploader.uploadJson(newMetadata);
     console.log(`📄 New metadata uploaded: ${newMetadataUri}`);
     
-    // Update the metadata on-chain
-    console.log('\n🔄 Updating on-chain metadata...');
-    
-    const updateTx = await updateMetadata(umi, {
-      mint: tokenInfo.mintAddress,
-      name: tokenInfo.name,
-      symbol: tokenInfo.symbol,
-      uri: newMetadataUri,
-      sellerFeeBasisPoints: 0,
-      creators: null,
-      collection: null,
-      uses: null,
+    console.log('\n🔄 Updating on-chain metadata (V2)...');
+
+    const metadataPda = findMetadataPda(umi, { mint: publicKey(tokenInfo.mintAddress) });
+    const { signature } = await updateMetadataAccountV2(umi, {
+      metadata: metadataPda,
+      updateAuthority: wallet,
+      data: {
+        name: tokenInfo.name,
+        symbol: tokenInfo.symbol,
+        uri: newMetadataUri,
+        sellerFeeBasisPoints: 0,
+        creators: null,
+        collection: null,
+        uses: null,
+      },
+      newUpdateAuthority: undefined,
+      primarySaleHappened: undefined,
+      isMutable: undefined,
     }).sendAndConfirm(umi);
     
-    console.log(`✅ Metadata updated! Transaction: ${updateTx.signature}`);
+    console.log(`✅ Metadata updated! Transaction: ${signature}`);
     
-    // Update token info file
     tokenInfo.metadataUri = newMetadataUri;
-    tokenInfo.metadataUpdateTransaction = updateTx.signature.toString();
+    tokenInfo.metadataUpdateTransaction = signature.toString();
     tokenInfo.lastMetadataUpdate = new Date().toISOString();
     tokenInfo.metadata = newMetadata;
     
@@ -84,7 +87,7 @@ const updateTokenMetadata = async (updates: MetadataUpdate) => {
     if (newMetadata.image) console.log(`   Image: ${newMetadata.image}`);
     if (newMetadata.external_url) console.log(`   Website: ${newMetadata.external_url}`);
     console.log(`   Metadata URI: ${newMetadataUri}`);
-    console.log(`   Transaction: ${updateTx.signature}`);
+    console.log(`   Transaction: ${signature}`);
     
     const explorerUrl = `https://explorer.solana.com/address/${tokenInfo.mintAddress}?cluster=devnet`;
     console.log(`\n🔍 View updated token: ${explorerUrl}`);
@@ -92,7 +95,7 @@ const updateTokenMetadata = async (updates: MetadataUpdate) => {
     return {
       success: true,
       newMetadataUri,
-      transaction: updateTx.signature.toString()
+      transaction: signature.toString()
     };
     
   } catch (error) {
@@ -101,7 +104,6 @@ const updateTokenMetadata = async (updates: MetadataUpdate) => {
   }
 };
 
-// CLI interface
 const main = async () => {
   const args = process.argv.slice(2);
   const command = args[0];
@@ -155,7 +157,6 @@ const main = async () => {
   console.log('\n🎉 Metadata update completed successfully!');
 };
 
-// Run if called directly
 if (require.main === module) {
   main().catch((error) => {
     console.error('\n💥 Metadata update failed:', error.message);

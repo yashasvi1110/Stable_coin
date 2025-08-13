@@ -3,6 +3,8 @@ import { loadKeypairFromFile } from '../utils/keypair';
 import { findAssociatedTokenPda, createAssociatedToken } from '@metaplex-foundation/mpl-toolbox';
 import fs from 'fs';
 import path from 'path';
+import { Connection, clusterApiUrl, PublicKey, Keypair } from '@solana/web3.js';
+import { getOrCreateAssociatedTokenAccount, transfer as splTransfer } from '@solana/spl-token';
 
 interface MiningSession {
   userId: string;
@@ -21,43 +23,49 @@ interface MiningConfig {
   miningRate: number; // tokens per second when mining
 }
 
+const loadWeb3Wallet = (): Keypair => {
+  const p = path.join(process.cwd(), 'keypairs', 'wallet.json');
+  const secret = new Uint8Array(JSON.parse(fs.readFileSync(p, 'utf-8')));
+  return Keypair.fromSecretKey(secret);
+};
+
 class VardianoMiningSystem {
   private sessions: Map<string, MiningSession> = new Map();
   private config: MiningConfig;
   private tokenInfo: any;
   private umi: any;
   private wallet: any;
+  private connection!: Connection;
 
   constructor() {
     this.config = {
-      tokensPerClick: 1, // 1 VARD per click
-      maxClicksPerHour: 100, // Max 100 clicks per hour
-      maxTokensPerDay: 1000, // Max 1000 VARD per day
-      cooldownSeconds: 3, // 3 seconds between clicks
-      miningRate: 0.1 // 0.1 VARD per second when mining
+      tokensPerClick: 1,
+      maxClicksPerHour: 100,
+      maxTokensPerDay: 1000,
+      cooldownSeconds: 3,
+      miningRate: 0.1
     };
   }
 
   async initialize() {
     console.log('🪙 Initializing Vardiano Mining System...\n');
-    
-    // Load token info
+
     const tokenInfoPath = path.join(process.cwd(), 'token-info.json');
     if (!fs.existsSync(tokenInfoPath)) {
       throw new Error('Token info not found. Please create a token first.');
     }
-    
+
     this.tokenInfo = JSON.parse(fs.readFileSync(tokenInfoPath, 'utf-8'));
     this.umi = createSolanaConnection();
     this.wallet = loadKeypairFromFile(this.umi, 'wallet');
-    
+    this.connection = new Connection(process.env.SOLANA_RPC_URL || clusterApiUrl('devnet'), 'confirmed');
+
     console.log(`📄 Token: ${this.tokenInfo.name} (${this.tokenInfo.symbol})`);
     console.log(`🏭 Mint: ${this.tokenInfo.mintAddress}`);
     console.log(`👤 Mining Wallet: ${this.wallet.publicKey}`);
-    
-    // Load existing sessions
+
     this.loadSessions();
-    
+
     console.log('✅ Mining system initialized successfully!');
   }
 
@@ -79,7 +87,7 @@ class VardianoMiningSystem {
   private saveSessions() {
     const sessionsPath = path.join(process.cwd(), 'mining-sessions.json');
     const sessionsData: any = {};
-    
+
     for (const [userId, session] of this.sessions.entries()) {
       sessionsData[userId] = {
         ...session,
@@ -87,18 +95,17 @@ class VardianoMiningSystem {
         lastClickTime: session.lastClickTime.toISOString()
       };
     }
-    
+
     fs.writeFileSync(sessionsPath, JSON.stringify(sessionsData, null, 2));
   }
 
   async startMining(userId: string): Promise<{ success: boolean; message: string; tokensEarned?: number }> {
     console.log(`\n⛏️ Starting mining session for user: ${userId}`);
-    
+
     const now = new Date();
     let session = this.sessions.get(userId);
-    
+
     if (!session) {
-      // Create new session
       session = {
         userId,
         startTime: now,
@@ -110,10 +117,8 @@ class VardianoMiningSystem {
       this.sessions.set(userId, session);
       console.log(`✅ New mining session created for ${userId}`);
     } else {
-      // Check if session is still valid (within 24 hours)
       const hoursSinceStart = (now.getTime() - session.startTime.getTime()) / (1000 * 60 * 60);
       if (hoursSinceStart >= 24) {
-        // Reset session for new day
         session = {
           userId,
           startTime: now,
@@ -126,9 +131,9 @@ class VardianoMiningSystem {
         console.log(`🔄 New day, session reset for ${userId}`);
       }
     }
-    
+
     this.saveSessions();
-    
+
     return {
       success: true,
       message: `Mining started! Click to earn ${this.config.tokensPerClick} ${this.tokenInfo.symbol} per click.`,
@@ -138,10 +143,10 @@ class VardianoMiningSystem {
 
   async mineClick(userId: string): Promise<{ success: boolean; message: string; tokensEarned: number; canClaim: boolean }> {
     console.log(`\n🖱️ Mining click from user: ${userId}`);
-    
+
     const now = new Date();
     const session = this.sessions.get(userId);
-    
+
     if (!session || !session.isActive) {
       return {
         success: false,
@@ -150,8 +155,7 @@ class VardianoMiningSystem {
         canClaim: false
       };
     }
-    
-    // Check cooldown
+
     const secondsSinceLastClick = (now.getTime() - session.lastClickTime.getTime()) / 1000;
     if (secondsSinceLastClick < this.config.cooldownSeconds) {
       return {
@@ -161,8 +165,7 @@ class VardianoMiningSystem {
         canClaim: false
       };
     }
-    
-    // Check hourly limit
+
     const clicksThisHour = session.clicks % this.config.maxClicksPerHour;
     if (clicksThisHour >= this.config.maxClicksPerHour) {
       return {
@@ -172,8 +175,7 @@ class VardianoMiningSystem {
         canClaim: false
       };
     }
-    
-    // Check daily limit
+
     if (session.tokensEarned >= this.config.maxTokensPerDay) {
       return {
         success: false,
@@ -182,29 +184,28 @@ class VardianoMiningSystem {
         canClaim: true
       };
     }
-    
-    // Award tokens
+
     const tokensToAward = this.config.tokensPerClick;
     session.clicks++;
     session.tokensEarned += tokensToAward;
     session.lastClickTime = now;
-    
+
     this.saveSessions();
-    
+
     console.log(`✅ ${tokensToAward} ${this.tokenInfo.symbol} awarded to ${userId}`);
     console.log(`📊 Total earned: ${session.tokensEarned} ${this.tokenInfo.symbol}`);
-    
+
     return {
       success: true,
       message: `+${tokensToAward} ${this.tokenInfo.symbol} earned! Total: ${session.tokensEarned} ${this.tokenInfo.symbol}`,
       tokensEarned: session.tokensEarned,
-      canClaim: session.tokensEarned >= 10 // Can claim when 10+ tokens earned
+      canClaim: session.tokensEarned >= 10
     };
   }
 
-  async claimTokens(userId: string): Promise<{ success: boolean; message: string; transaction?: string }> {
+  async claimTokens(userId: string, recipientAddress: string): Promise<{ success: boolean; message: string; transaction?: string }> {
     console.log(`\n💰 Claiming tokens for user: ${userId}`);
-    
+
     const session = this.sessions.get(userId);
     if (!session || session.tokensEarned < 10) {
       return {
@@ -212,27 +213,38 @@ class VardianoMiningSystem {
         message: 'Need at least 10 tokens to claim.'
       };
     }
-    
+
     try {
-      // For now, we'll use a simplified approach without creating user accounts
-      // In a real implementation, you'd need proper wallet addresses
-      console.log(`ℹ️ Token claiming would transfer ${session.tokensEarned} ${this.tokenInfo.symbol} to user ${userId}`);
-      console.log(`💡 In production, you'd need the user's actual wallet address`);
-      
-      // Simulate successful claim
-      console.log(`✅ ${session.tokensEarned} ${this.tokenInfo.symbol} claimed by ${userId}`);
-      
-      // Reset session
+      const recipient = new PublicKey(recipientAddress);
+      const senderWallet = loadWeb3Wallet();
+      const mintPubkey = new PublicKey(this.tokenInfo.mintAddress);
+
+      const senderAta = await getOrCreateAssociatedTokenAccount(this.connection, senderWallet, mintPubkey, senderWallet.publicKey);
+      const recipientAta = await getOrCreateAssociatedTokenAccount(this.connection, senderWallet, mintPubkey, recipient);
+
+      const rawAmount = Number(BigInt(session.tokensEarned) * 10n ** BigInt(this.tokenInfo.decimals));
+
+      const sig = await splTransfer(
+        this.connection,
+        senderWallet,
+        senderAta.address,
+        recipientAta.address,
+        senderWallet.publicKey,
+        rawAmount
+      );
+
+      const claimed = session.tokensEarned;
       session.tokensEarned = 0;
       session.clicks = 0;
       this.saveSessions();
-      
+
+      console.log(`✅ ${claimed} ${this.tokenInfo.symbol} transferred to ${recipientAddress}`);
+
       return {
         success: true,
-        message: `Successfully claimed ${session.tokensEarned} ${this.tokenInfo.symbol}!`,
-        transaction: 'simulated-claim-transaction'
+        message: `Successfully claimed and transferred ${claimed} ${this.tokenInfo.symbol}!`,
+        transaction: sig
       };
-      
     } catch (error) {
       console.error('❌ Error claiming tokens:', error);
       return {
@@ -252,7 +264,7 @@ class VardianoMiningSystem {
         canClaim: false
       };
     }
-    
+
     return {
       isActive: session.isActive,
       tokensEarned: session.tokensEarned,
@@ -267,13 +279,13 @@ class VardianoMiningSystem {
     let totalTokensEarned = 0;
     let totalClicks = 0;
     let activeUsers = 0;
-    
+
     for (const session of this.sessions.values()) {
       totalTokensEarned += session.tokensEarned;
       totalClicks += session.clicks;
       if (session.isActive) activeUsers++;
     }
-    
+
     return {
       totalTokensEarned,
       totalClicks,
@@ -284,32 +296,42 @@ class VardianoMiningSystem {
   }
 }
 
-// CLI interface
 const main = async () => {
   const args = process.argv.slice(2);
   const command = args[0];
-  const userId = args[1] || 'default-user';
-  
+
   const miningSystem = new VardianoMiningSystem();
   await miningSystem.initialize();
-  
+
   switch (command) {
-    case 'start':
+    case 'start': {
+      const userId = args[1] || 'default-user';
       const startResult = await miningSystem.startMining(userId);
       console.log(startResult.message);
       break;
-      
-    case 'click':
+    }
+    case 'click': {
+      const userId = args[1] || 'default-user';
       const clickResult = await miningSystem.mineClick(userId);
       console.log(clickResult.message);
       break;
-      
-    case 'claim':
-      const claimResult = await miningSystem.claimTokens(userId);
+    }
+    case 'claim': {
+      const recipientAddress = args[1];
+      const userId = args[2] || 'default-user';
+      if (!recipientAddress) {
+        console.log('Usage: npm run mining-claim <recipient-wallet-address> <user-id?>');
+        break;
+      }
+      const claimResult = await miningSystem.claimTokens(userId, recipientAddress);
       console.log(claimResult.message);
+      if (claimResult.transaction) {
+        console.log(`🧾 TX: ${claimResult.transaction}`);
+      }
       break;
-      
-    case 'stats':
+    }
+    case 'stats': {
+      const userId = args[1] || 'default-user';
       const stats = miningSystem.getMiningStats(userId);
       console.log(`\n📊 Mining Stats for ${userId}:`);
       console.log(`   Active: ${stats.isActive}`);
@@ -317,8 +339,8 @@ const main = async () => {
       console.log(`   Clicks: ${stats.clicks}`);
       console.log(`   Can Claim: ${stats.canClaim}`);
       break;
-      
-    case 'global':
+    }
+    case 'global': {
       const globalStats = miningSystem.getGlobalStats();
       console.log(`\n🌍 Global Mining Stats:`);
       console.log(`   Total Tokens Earned: ${globalStats.totalTokensEarned} VARD`);
@@ -326,20 +348,20 @@ const main = async () => {
       console.log(`   Active Users: ${globalStats.activeUsers}`);
       console.log(`   Total Sessions: ${globalStats.totalSessions}`);
       break;
-      
-    default:
+    }
+    default: {
       console.log('🪙 Vardiano Mining System\n');
       console.log('Usage:');
       console.log('  npm run mining-start <user-id>');
       console.log('  npm run mining-click <user-id>');
-      console.log('  npm run mining-claim <user-id>');
+      console.log('  npm run mining-claim <recipient-wallet-address> <user-id?>');
       console.log('  npm run mining-stats <user-id>');
       console.log('  npm run mining-global');
       break;
+    }
   }
 };
 
-// Run if called directly
 if (require.main === module) {
   main().catch((error) => {
     console.error('\n💥 Mining system error:', error.message);
