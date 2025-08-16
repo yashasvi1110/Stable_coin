@@ -1,78 +1,88 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js'
-import { getAssociatedTokenAddress, getAccount, getMint } from '@solana/spl-token'
+import WalletProvider from '../components/WalletProvider'
+import TokenDashboard from '../components/TokenDashboard'
+
+interface TokenInfo {
+  mintAddress: string
+  symbol: string
+  name: string
+  decimals: number
+  initialSupply: number
+  metadataUri?: string
+  logo?: {
+    ipfs?: string
+    arweave?: string
+  }
+}
 
 export default function Home() {
-  const [info, setInfo] = useState<any>(null)
-  const [balance, setBalance] = useState<string>('')
-  const [sol, setSol] = useState<string>('')
+  const [tokenInfo, setTokenInfo] = useState<TokenInfo | null>(null)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
-  const [clicks, setClicks] = useState<number>(0)
-  const [canClaim, setCanClaim] = useState<boolean>(false)
-  const [claiming, setClaiming] = useState<boolean>(false)
 
   useEffect(() => {
-    const run = async () => {
-      const res = await fetch('/api/token-info')
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-      setInfo(data)
-      const conn = new Connection(process.env.NEXT_PUBLIC_SOLANA_RPC || clusterApiUrl('devnet'), 'confirmed')
-      const wallet = new PublicKey(data.wallet)
-      const mint = new PublicKey(data.mintAddress)
-      const ata = await getAssociatedTokenAddress(mint, wallet)
-      const acct = await getAccount(conn, ata)
-      const mintInfo = await getMint(conn, mint)
-      const human = Number(acct.amount) / 10 ** mintInfo.decimals
-      setBalance(human.toLocaleString())
-      const lamports = await conn.getBalance(wallet)
-      setSol((lamports / 1e9).toFixed(4))
-    }
-    run().catch((e) => setError(e.message || 'failed'))
+    loadTokenInfo()
   }, [])
 
-  const click = async () => {
-    const res = await fetch('/api/mining/click', { method: 'POST' })
-    const data = await res.json()
-    if (data.error) return alert(data.error)
-    setClicks(data.tokensEarned)
-    setCanClaim(data.canClaim)
-  }
-
-  const claim = async () => {
-    setClaiming(true)
+  const loadTokenInfo = async () => {
     try {
-      const res = await fetch('/api/mining/claim', { method: 'POST' })
-      const data = await res.json()
-      if (data.error) throw new Error(data.error)
-      alert('Claimed! TX: ' + data.tx)
-    } catch (e: any) {
-      alert(e.message)
+      setLoading(true)
+      setError('')
+      
+      const response = await fetch('/api/token-info')
+      const data = await response.json()
+      
+      if (data.error) {
+        throw new Error(data.error)
+      }
+      
+      setTokenInfo(data)
+    } catch (err: any) {
+      setError(err.message || 'Failed to load token information')
     } finally {
-      setClaiming(false)
+      setLoading(false)
     }
   }
 
-  if (error) return <main className="p-6">Error: {error}</main>
-  if (!info) return <main className="p-6">Loading...</main>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading Vardiano Dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Token Not Found</h1>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-left">
+            <h3 className="font-semibold text-yellow-800 mb-2">To get started:</h3>
+            <ol className="text-sm text-yellow-700 space-y-1">
+              <li>1. Create a token: <code className="bg-yellow-100 px-1 rounded">npm run create-freezable-classic</code></li>
+              <li>2. Upload logo: <code className="bg-yellow-100 px-1 rounded">npm run upload-logo</code></li>
+              <li>3. Run security tests: <code className="bg-yellow-100 px-1 rounded">npm run security-tests</code></li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <main className="p-6 space-y-4">
-      <h1 className="text-2xl font-semibold">Vardiano Dashboard</h1>
-      <div className="space-y-1">
-        <div>Mint: {info.mintAddress}</div>
-        <div>Wallet: {info.wallet}</div>
-        <div>SOL: {sol}</div>
-        <div>Balance: {balance} {info.symbol || 'VARD'}</div>
-        <div>Explorer: <a className="text-blue-600 underline" href={`https://explorer.solana.com/address/${info.mintAddress}?cluster=devnet`} target="_blank">View</a></div>
+    <WalletProvider>
+      <div className="min-h-screen bg-gray-50">
+        <TokenDashboard tokenInfo={tokenInfo!} />
       </div>
-      <div className="pt-4 space-x-2">
-        <button onClick={click} className="px-3 py-1 bg-blue-600 text-white rounded">Mine +1</button>
-        <button onClick={claim} disabled={!canClaim || claiming} className="px-3 py-1 bg-green-600 text-white rounded disabled:opacity-50">Claim</button>
-        <span className="ml-2">Mined: {clicks}</span>
-      </div>
-    </main>
+    </WalletProvider>
   )
 }
 

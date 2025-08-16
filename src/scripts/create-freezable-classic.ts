@@ -9,11 +9,25 @@ const loadWallet = (): Keypair => {
   return Keypair.fromSecretKey(secret);
 };
 
-const loadFreezeAuthority = (): PublicKey => {
+const createFreezeAuthority = (): Keypair => {
+  console.log('🔑 Creating new freeze authority...');
+  const freezeAuthority = Keypair.generate();
+  
+  // Save the freeze authority
+  const keypairPath = path.join(process.cwd(), 'keypairs', 'freeze-authority.json');
+  fs.writeFileSync(keypairPath, JSON.stringify(Array.from(freezeAuthority.secretKey)));
+  
+  console.log(`✅ Freeze authority created: ${freezeAuthority.publicKey.toBase58()}`);
+  return freezeAuthority;
+};
+
+const loadFreezeAuthority = (): Keypair => {
   const p = path.join(process.cwd(), 'keypairs', 'freeze-authority.json');
-  if (!fs.existsSync(p)) throw new Error('freeze-authority.json not found. Run npm run create-authority');
+  if (!fs.existsSync(p)) {
+    return createFreezeAuthority();
+  }
   const secret = new Uint8Array(JSON.parse(fs.readFileSync(p, 'utf-8')));
-  return Keypair.fromSecretKey(secret).publicKey;
+  return Keypair.fromSecretKey(secret);
 };
 
 const main = async () => {
@@ -27,9 +41,9 @@ const main = async () => {
 
   console.log('🧊 Creating freezable SPL mint');
   console.log(`👤 Mint authority: ${wallet.publicKey.toBase58()}`);
-  console.log(`🧑‍⚖️ Freeze authority: ${freezeAuthority.toBase58()}`);
+  console.log(`🧑‍⚖️ Freeze authority: ${freezeAuthority.publicKey.toBase58()}`);
 
-  const mint = await splCreateMint(conn, wallet, wallet.publicKey, freezeAuthority, cfg.decimals ?? 9);
+  const mint = await splCreateMint(conn, wallet, wallet.publicKey, freezeAuthority.publicKey, cfg.decimals ?? 9);
   const ata = await getOrCreateAssociatedTokenAccount(conn, wallet, mint, wallet.publicKey);
 
   const initial = Number(BigInt(cfg.initialSupply ?? 0) * 10n ** BigInt(cfg.decimals ?? 9));
@@ -47,7 +61,7 @@ const main = async () => {
     initialSupply: cfg.initialSupply ?? 0,
     createdAt: new Date().toISOString(),
     network: 'devnet',
-    freezeAuthority: freezeAuthority.toBase58(),
+    freezeAuthority: freezeAuthority.publicKey.toBase58(),
   };
   fs.writeFileSync(infoPath, JSON.stringify(newInfo, null, 2));
   console.log('💾 Wrote token-info.json');
