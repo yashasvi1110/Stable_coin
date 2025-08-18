@@ -7,11 +7,13 @@ import path from 'path';
 
 interface TokenInfo {
   mintAddress: string;
+  tokenAccount?: string;
   name?: string;
   symbol?: string;
   description?: string;
   metadataUri?: string;
   createMetadataTx?: string;
+  mintAuthority?: string;
 }
 
 const main = async () => {
@@ -37,8 +39,20 @@ const main = async () => {
   const defaultDescription = tokenInfo.description || 'Vardiano token on Solana';
 
   const umi = createSolanaConnection();
-  const wallet = loadKeypairFromFile(umi, 'wallet');
-  umi.use(signerIdentity(wallet));
+  
+  // Check if mint authority was transferred
+  let mintAuthority = loadKeypairFromFile(umi, 'wallet');
+  if (tokenInfo.mintAuthority && tokenInfo.mintAuthority !== tokenInfo.tokenAccount) {
+    // Use freeze-authority keypair as mint authority
+    try {
+      mintAuthority = loadKeypairFromFile(umi, 'freeze-authority');
+      console.log(`Using transferred mint authority: ${mintAuthority.publicKey}`);
+    } catch (e) {
+      console.log('Using wallet as fallback authority');
+    }
+  }
+  
+  umi.use(signerIdentity(mintAuthority));
 
   // Build metadata JSON
   const metadataJson = {
@@ -61,9 +75,9 @@ const main = async () => {
   console.log('🧾 Creating metadata account (V3)');
   const { signature } = await createMetadataAccountV3(umi, {
     mint: publicKey(tokenInfo.mintAddress),
-    mintAuthority: wallet,
-    payer: wallet,
-    updateAuthority: wallet.publicKey,
+    mintAuthority: mintAuthority,
+    payer: mintAuthority,
+    updateAuthority: mintAuthority.publicKey,
     data: {
       name: defaultName,
       symbol: defaultSymbol,
