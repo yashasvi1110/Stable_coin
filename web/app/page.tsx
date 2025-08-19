@@ -48,10 +48,17 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading Vardiano Dashboard...</p>
+          <div className="relative">
+            <div className="animate-spin rounded-full h-32 w-32 border-4 border-indigo-200 border-t-indigo-600 mx-auto"></div>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-4xl">🪙</div>
+            </div>
+          </div>
+          <p className="mt-6 text-xl font-semibold text-gray-700 bg-white/50 backdrop-blur-sm px-6 py-3 rounded-full">
+            Loading Vardiano Dashboard...
+          </p>
         </div>
       </div>
     )
@@ -59,17 +66,26 @@ export default function Home() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto p-6">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Token Not Found</h1>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-left">
-            <h3 className="font-semibold text-yellow-800 mb-2">To get started:</h3>
-            <ol className="text-sm text-yellow-700 space-y-1">
-              <li>1. Create a token: <code className="bg-yellow-100 px-1 rounded">npm run create-freezable-classic</code></li>
-              <li>2. Upload logo: <code className="bg-yellow-100 px-1 rounded">npm run upload-logo</code></li>
-              <li>3. Run security tests: <code className="bg-yellow-100 px-1 rounded">npm run security-tests</code></li>
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-8">
+          <div className="text-red-500 text-8xl mb-6 animate-bounce">⚠️</div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Token Not Found</h1>
+          <p className="text-gray-600 mb-8 text-lg">{error}</p>
+          <div className="bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-2xl p-6 text-left shadow-lg">
+            <h3 className="font-semibold text-yellow-800 mb-4 text-lg">🚀 To get started:</h3>
+            <ol className="text-sm text-yellow-700 space-y-3">
+              <li className="flex items-center">
+                <span className="bg-yellow-100 text-yellow-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">1</span>
+                Create a token: <code className="bg-yellow-100 px-2 py-1 rounded ml-2 font-mono">npm run create-freezable-classic</code>
+              </li>
+              <li className="flex items-center">
+                <span className="bg-yellow-100 text-yellow-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">2</span>
+                Upload logo: <code className="bg-yellow-100 px-2 py-1 rounded ml-2 font-mono">npm run upload-logo</code>
+              </li>
+              <li className="flex items-center">
+                <span className="bg-yellow-100 text-yellow-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3">3</span>
+                Run security tests: <code className="bg-yellow-100 px-2 py-1 rounded ml-2 font-mono">npm run security-tests</code>
+              </li>
             </ol>
           </div>
         </div>
@@ -79,8 +95,14 @@ export default function Home() {
 
   return (
     <WalletProvider>
-      <div className="min-h-screen bg-gray-50">
-        <TokenDashboard tokenInfo={tokenInfo!} />
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+        {/* Hero Section */}
+        <div className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 opacity-10"></div>
+          <div className="relative z-10">
+            <TokenDashboard tokenInfo={tokenInfo!} />
+          </div>
+        </div>
       </div>
     </WalletProvider>
   )

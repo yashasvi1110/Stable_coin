@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "ts-node src/scripts/mint-token.ts",
+    "dev": "cd web && npm run dev",
     "test": "jest",
     "airdrop": "ts-node src/scripts/airdrop.ts",
     "create-wallet": "ts-node src/scripts/create-wallet.ts",
