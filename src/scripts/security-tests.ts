@@ -128,7 +128,8 @@ class VardianoSecurityTester {
       }
       
       const metadata = await response.json();
-      if (!metadata.name || !metadata.symbol) {
+      const metadataObj = metadata as any;
+      if (!metadataObj.name || !metadataObj.symbol) {
         console.log('❌ Metadata missing required fields');
         return false;
       }
@@ -231,11 +232,11 @@ class VardianoSecurityTester {
     };
 
     if (passed < total) {
-      securityReport.recommendations.push('Run failed tests individually to identify issues');
+      (securityReport.recommendations as string[]).push('Run failed tests individually to identify issues');
     }
     
     if (!critical) {
-      securityReport.recommendations.push('Critical security issues detected - resolve before production use');
+      (securityReport.recommendations as string[]).push('Critical security issues detected - resolve before production use');
     }
 
     // Save security report

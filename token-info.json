@@ -1,37 +1,17 @@
 {
-  "mintAddress": "79xNGvmiDRnnA5CFiByWs9L4eRBnvJQpjrgANhXXGCqt",
-  "tokenAccount": "94gvKC1uFhyQ3r5EjkASNFEi4S1MUzPDbhLPtPDv19Ju",
+  "mintAddress": "8bQ8VvDJK1wFKmGZTo1aVnLhPuJ4MCHPW3HppppEkVSZ",
+  "tokenAccount": "3rb8dh5sz6ZvEXNZQ63ZzHTHC3FEVSMzDL9Yu6GNbuu2",
   "name": "Vardiano",
   "symbol": "VARD",
   "decimals": 9,
   "initialSupply": 100000,
-  "createdAt": "2025-08-13T09:37:41.335Z",
+  "createdAt": "2025-08-19T12:07:53.579Z",
   "network": "devnet",
-  "freezeAuthority": "3HbDjnt4To88sDXJUFCmHDjXMu5Rx58mxUsYmbdz88bG",
-  "frozen": false,
-  "freezeTransaction": "qGSWzchjF2NpizmaJpq7N3JRJdwTa3XBxHhu1g2JeZEBeE7Er7QKg26pi5Ubsm4WiPvRXyDTRbidZ8tToa448Az",
-  "thawTransaction": "mRzW9bcexHx8pgSeJwJkbQoXbou2svVXVMhz7jo1hdwvo3mJqHoZvD6GmNW4ExCQXfssGXmSRmN7pTvZBq58K3p",
-  "mintAuthority": "3HbDjnt4To88sDXJUFCmHDjXMu5Rx58mxUsYmbdz88bG",
-  "authorityTransferTransaction": "38UN3UCCNU7aqkSCHKcUyGuoj4RMv8z3h7uyuRPxXg15njKz791b1QnG1GNiDewtxDiDLU2FpdKuMeU1XkY2rhoh",
-  "additionalMints": [
-    {
-      "amount": 100,
-      "transaction": "VtuaBKmEXuPieHFNLhRmiB6SpkS4NGh8JShrra3v4uSkSQbpsPnt6NEDUiJSqxa7KpMGTBzz3Th7aWbx6K5RfS6",
-      "timestamp": "2025-08-16T06:51:36.386Z"
-    },
-    {
-      "amount": 50,
-      "transaction": "2Jk8mCMqoXiTXnsXmfeHzaerFaXkohq6BApgYH8skmAtV2cVfjt2QzyBea25SMc4h3Ju53goNuZgEktAumCHzGAM",
-      "timestamp": "2025-08-18T07:46:48.301Z"
-    }
-  ],
-  "metadataUri": "https://gateway.irys.xyz/Hf9S53fyy7tc96mm8kNqMKCJWLJWYsGTX8718J7aRajy",
-  "createMetadataTx": "239,205,236,170,38,25,90,56,254,224,155,162,154,209,28,41,173,194,9,204,37,28,103,176,203,54,123,230,253,42,96,17,137,241,159,27,141,16,96,153,115,28,234,224,200,111,136,237,238,226,151,217,119,129,147,188,26,249,28,237,120,197,89,6",
-  "burnTransactions": [
-    {
-      "amount": 25,
-      "transaction": "53AQDXsNkuD5RxgsPohbFpCDX94bo4T42tqJjwBA792RL6nX5cM1k2f5xL9p5p5FEqZRUNrKmtYF32Y8fVm32y2X",
-      "timestamp": "2025-08-18T07:46:56.320Z"
-    }
-  ]
+  "freezeAuthority": "4QNCNYfmCDpvvGaEKpGgQD1SfPxKkQC5H65DJnKTYiCX",
+  "logo": {
+    "ipfs": "https://gateway.irys.xyz/7WLiPmUDuy9PdCZWi8x348zdtuyLrxnoktone8B4pGgF",
+    "arweave": "https://arweave.net/placeholder-1755605346189",
+    "fileName": "placeholder-logo.png",
+    "uploadedAt": "2025-08-19T12:09:06.189Z"
+  }
 }

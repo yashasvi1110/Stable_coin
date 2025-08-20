@@ -22,8 +22,8 @@ interface MainnetConfig {
 
 class MainnetDeployer {
   private connection: Connection;
-  private wallet: Keypair;
-  private config: MainnetConfig;
+  private wallet!: Keypair;
+  private config!: MainnetConfig;
 
   constructor() {
     this.connection = new Connection(process.env.MAINNET_RPC_URL || clusterApiUrl('mainnet-beta'), 'confirmed');
@@ -38,7 +38,9 @@ class MainnetDeployer {
       throw new Error('Mainnet wallet not found. Create one with: npm run create-mainnet-wallet');
     }
     
-    this.wallet = loadKeypairFromFile(null, 'mainnet-wallet');
+    const umi = createSolanaConnection();
+    const walletSigner = loadKeypairFromFile(umi, 'mainnet-wallet');
+    this.wallet = walletSigner as any; // Type assertion for compatibility
     
     // Load mainnet config
     const configPath = path.join(process.cwd(), 'mainnet-config.json');
