@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import WalletProvider from '../components/WalletProvider'
-import TokenDashboard from '../components/TokenDashboard'
+import EnhancedTokenDashboard from '../components/EnhancedTokenDashboard'
 
 interface TokenInfo {
   mintAddress: string
@@ -100,7 +100,7 @@ export default function Home() {
         <div className="relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 opacity-10"></div>
           <div className="relative z-10">
-            <TokenDashboard tokenInfo={tokenInfo!} />
+            <EnhancedTokenDashboard tokenInfo={tokenInfo!} />
           </div>
         </div>
       </div>
