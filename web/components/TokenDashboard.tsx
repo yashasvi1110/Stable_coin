@@ -152,11 +152,17 @@ export default function TokenDashboard({ tokenInfo }: TokenDashboardProps) {
   }
 
   const handleMine = async () => {
-    if (!connected) return
+    if (!connected || !publicKey) return
     
     try {
       setLoading(true)
-      const response = await fetch('/api/mining/click', { method: 'POST' })
+      const response = await fetch('/api/mining/click', { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ walletAddress: publicKey.toString() })
+      })
       const data = await response.json()
       
       if (data.error) {
@@ -188,13 +194,19 @@ export default function TokenDashboard({ tokenInfo }: TokenDashboardProps) {
   }
 
   const handleClaim = async () => {
-    if (!connected || !miningStats.canClaim) return
+    if (!connected || !publicKey || !miningStats.canClaim) return
     
     try {
       setLoading(true)
       setMiningStats(prev => ({ ...prev, claiming: true }))
       
-      const response = await fetch('/api/mining/claim', { method: 'POST' })
+      const response = await fetch('/api/mining/claim', { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ walletAddress: publicKey.toString() })
+      })
       const data = await response.json()
       
       if (data.error) {

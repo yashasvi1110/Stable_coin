@@ -65,6 +65,8 @@
     "token-burn-spl": "ts-node src/scripts/token-manage-spl.ts burn",
     "token-mint-additional-spl": "ts-node src/scripts/token-manage-spl.ts mint-additional",
     "create-metadata": "ts-node src/scripts/create-metadata.ts",
+    "create-metadata-fixed": "ts-node src/scripts/create-metadata-fixed.ts",
+    "create-metadata-simple": "ts-node src/scripts/create-metadata-simple.ts",
     "token-transfer-authority-spl": "ts-node src/scripts/authority-spl.ts",
     "token-freeze-spl": "ts-node src/scripts/freeze-thaw-spl.ts freeze",
     "token-unfreeze-spl": "ts-node src/scripts/freeze-thaw-spl.ts unfreeze",

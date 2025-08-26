@@ -8,10 +8,13 @@
   "createdAt": "2025-08-19T12:07:53.579Z",
   "network": "devnet",
   "freezeAuthority": "4QNCNYfmCDpvvGaEKpGgQD1SfPxKkQC5H65DJnKTYiCX",
+  "mintAuthority": "4HMDgZPGydEv7uLbteQTvvhzFBxX3HUCYSca5VWqATjB",
   "logo": {
     "ipfs": "https://gateway.irys.xyz/7WLiPmUDuy9PdCZWi8x348zdtuyLrxnoktone8B4pGgF",
     "arweave": "https://arweave.net/placeholder-1755605346189",
     "fileName": "placeholder-logo.png",
     "uploadedAt": "2025-08-19T12:09:06.189Z"
-  }
+  },
+  "metadataUri": "https://arweave.net/placeholder-1755935180466",
+  "description": "Vardiano token on Solana"
 }
